@@ -405,6 +405,7 @@ html { box-sizing: border-box; }
       <div class="group">
         <div class="track"><div id="cal-bar"></div></div>
         <div class="hint" id="cal-hold">Waiting</div>
+        <div class="hint" id="cal-diag" style="font-variant-numeric: tabular-nums;"></div>
       </div>
       <div class="tiles t3">
         <div class="tile"><div class="label">Centre</div><div class="num" id="cal-c">-</div></div>
@@ -413,6 +414,7 @@ html { box-sizing: border-box; }
       </div>
       <div class="hint">Lanes scale to your range, so the outside lane is always reachable. A plus sign means you turned past what the camera can see. Turn only as far as is comfortable and stop if anything hurts.</div>
       <button type="button" class="btn link" id="cal-last" hidden></button>
+      <button type="button" class="btn" id="cal-now">Set this step now</button>
     </div>
     <div class="actions two">
       <button type="button" class="btn" id="cal-redo">Redo</button>
@@ -677,9 +679,10 @@ const tracker = {
   step(ts) {
     const v = this.video;
     if (!this.lm || !v || v.readyState < 2) return;
-    if (v.currentTime === this.vt) return;
-    if (ts - this.lastDet < (this.cost > 45 ? 90 : 0)) return;
+    if (ts - this.lastDet < (this.cost > 45 ? 90 : 30)) return;
+    if (ts <= this.lastDet) return;
     this.vt = v.currentTime; this.lastDet = ts;
+    this.dets = (this.dets || 0) + 1;
     const t0 = performance.now();
     let res;
     try { res = this.lm.detectForVideo(v, ts); } catch (e) { return; }
@@ -910,7 +913,7 @@ function updatePosition() {
 
 /* ---------- calibrate ---------- */
 const calib = { step: 0, buf: [], centre: 0, left: 0, right: 0, beyondL: false, beyondR: false, max: 0, lastMag: 0, holdStart: 0, done: false };
-function resetCalib() { Object.assign(calib, { step: 0, buf: [], centre: 0, left: 0, right: 0, beyondL: false, beyondR: false, max: 0, lastMag: 0, holdStart: 0, done: false, wrong: false }); paintCalib(0, 0); }
+function resetCalib() { calib.firstFace = 0; Object.assign(calib, { step: 0, buf: [], centre: 0, left: 0, right: 0, beyondL: false, beyondR: false, max: 0, lastMag: 0, holdStart: 0, done: false, wrong: false }); paintCalib(0, 0); }
 function calOk() { return !!cal && (cal.athlete || '') === athlete; }
 function calText(side) { return fmtDeg(side < 0 ? cal.left : cal.right) + ((side < 0 ? cal.leftBeyond : cal.rightBeyond) ? '+' : ''); }
 function enterCalibrate() {
@@ -958,6 +961,12 @@ function paintCalib(rel, progress) {
 }
 function updateCalibrate(ts) {
   if (tracker.state !== 'ready') return;
+  if (!tracker.diagAt || ts - tracker.diagAt > 500) {
+    const n = tracker.dets || 0, rate = tracker.diagAt ? Math.round((n - (tracker.diagN || 0)) * 1000 / (ts - tracker.diagAt)) : 0;
+    tracker.diagAt = ts; tracker.diagN = n;
+    const v = tracker.video;
+    $('cal-diag').textContent = 'Camera ' + (v && v.readyState >= 2 ? 'on' : 'waiting') + ' | reads per second ' + rate + ' | face ' + (tracker.face ? 'yes' : 'no') + ' | angle ' + (tracker.face ? Math.round(tracker.yaw) + '°' : '-');
+  }
   const face = tracker.face, yaw = tracker.yaw;
   if (calib.done) { paintCalib(face ? yaw - calib.centre : 0, 1); return; }
   let progress = 0;
@@ -967,7 +976,9 @@ function updateCalibrate(ts) {
       while (calib.buf.length && ts - calib.buf[0].ts > 1300) calib.buf.shift();
       const ys = calib.buf.map((b) => b.yaw);
       const span = Math.max.apply(null, ys) - Math.min.apply(null, ys);
-      if (span > 6) calib.buf = [{ ts, yaw }];
+      if (span > 12) calib.buf = [{ ts, yaw }];
+      if (!calib.firstFace) calib.firstFace = ts;
+      if (ts - calib.firstFace > 4000 && calib.buf.length < 3) calib.buf = calib.buf.concat([{ ts: ts - 1000, yaw }]);
       progress = (ts - calib.buf[0].ts) / 1000;
       if (progress >= 1 && calib.buf.length >= 3) {
         calib.centre = mean(calib.buf.map((b) => b.yaw));
@@ -975,7 +986,7 @@ function updateCalibrate(ts) {
         audio.count();
       }
     } else { calib.buf = []; }
-    paintCalib(face ? yaw - (calib.step ? calib.centre : yaw) : 0, progress);
+    paintCalib(face ? (calib.step ? yaw - calib.centre : yaw) : 0, progress);
     return;
   }
   const side = calib.step === 1 ? -1 : 1;
@@ -988,7 +999,8 @@ function updateCalibrate(ts) {
   } else if (calib.lastMag >= 30) {
     if (!calib.holdStart) calib.holdStart = ts;   // turned past what the camera can see: counts as holding
   } else { calib.holdStart = 0; }
-  progress = calib.holdStart ? (ts - calib.holdStart) / 2000 : 0;
+  progress = calib.force ? 1 : (calib.holdStart ? (ts - calib.holdStart) / 2000 : 0);
+  calib.force = false;
   if (progress >= 1) {
     const val = Math.round(calib.max);
     if (side < 0) { calib.left = val; calib.beyondL = rel == null; calib.step = 2; calib.max = 0; calib.lastMag = 0; calib.holdStart = 0; calib.wrong = false; audio.count(); }
@@ -1394,6 +1406,12 @@ $('pos-next').addEventListener('click', () => enterCalibrate());
 
 $('cal-back').addEventListener('click', () => enterPosition());
 $('cal-redo').addEventListener('click', () => resetCalib());
+$('cal-now').addEventListener('click', () => {
+  if (calib.done) return;
+  const now = performance.now();
+  if (calib.step === 0) { calib.buf = [{ ts: now - 1100, yaw: tracker.face ? tracker.yaw : 0 }, { ts: now - 500, yaw: tracker.face ? tracker.yaw : 0 }, { ts: now, yaw: tracker.face ? tracker.yaw : 0 }]; calib.firstFace = now - 5000; }
+  else { const cur = tracker.face ? Math.abs(tracker.yaw - calib.centre) : calib.lastMag; calib.max = Math.max(calib.max, cur, 12); calib.force = true; }
+});
 $('cal-start').addEventListener('click', () => beginPlay());
 $('cal-last').addEventListener('click', () => beginPlay());
 
