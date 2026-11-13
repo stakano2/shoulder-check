@@ -189,7 +189,7 @@ html { box-sizing: border-box; }
     <header class="bar">
       <div class="title">
         <div class="wordmark">REACTFORGE</div>
-        <div class="sub">Head-controlled training</div>
+        <div class="sub">Head-controlled training <span id="ver">v1.3</span></div>
       </div>
       <button type="button" class="btn" id="nav-progress">Progress</button>
     </header>
@@ -350,6 +350,7 @@ html { box-sizing: border-box; }
         <svg viewBox="0 0 400 300" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><ellipse cx="200" cy="140" rx="78" ry="104" fill="none" stroke="#6FD3F7" stroke-width="2" stroke-dasharray="7 7"></ellipse></svg>
         <div class="msg" id="pos-msg">Starting camera</div>
       </div>
+      <div class="hint" id="pos-diag" style="font-variant-numeric: tabular-nums;"></div>
       <div class="chips" id="pos-chips">
         <span class="chip" id="chip-face">Face found</span>
         <span class="chip" id="chip-dist">Distance good</span>
@@ -647,8 +648,10 @@ const tracker = {
             const vision = await import(MP_LIB + '/vision_bundle.mjs');
             const fileset = await vision.FilesetResolver.forVisionTasks(MP_LIB + '/wasm');
             const opts = (delegate) => ({ baseOptions: { modelAssetPath: MP_MODEL, delegate }, runningMode: 'VIDEO', numFaces: 1, outputFacialTransformationMatrixes: true });
-            try { this.lm = await vision.FaceLandmarker.createFromOptions(fileset, opts('GPU')); }
-            catch (e) { this.lm = await vision.FaceLandmarker.createFromOptions(fileset, opts('CPU')); }
+            this.makeCpu = () => vision.FaceLandmarker.createFromOptions(fileset, opts('CPU'));
+            const forceCpu = /[?&]cpu\b/.test(location.search);
+            try { if (forceCpu) throw new Error('cpu requested'); this.lm = await vision.FaceLandmarker.createFromOptions(fileset, opts('GPU')); this.mode = 'GPU'; }
+            catch (e) { this.lm = await this.makeCpu(); this.mode = 'CPU'; }
           } catch (e) {
             throw Object.assign(e instanceof Error ? e : new Error(String(e)), { kind: 'model' });
           }
@@ -685,7 +688,21 @@ const tracker = {
     this.dets = (this.dets || 0) + 1;
     const t0 = performance.now();
     let res;
-    try { res = this.lm.detectForVideo(v, ts); } catch (e) { return; }
+    if (v.paused) { const pp = v.play(); if (pp && pp.catch) pp.catch(() => {}); }
+    try { res = this.lm.detectForVideo(v, ts); this.errs = 0; }
+    catch (e) {
+      this.errs = (this.errs || 0) + 1; this.lastErr = (e && e.message) || String(e);
+      this.face = false; this.has = false;
+      if (this.errs >= 8 && this.mode === 'GPU' && this.makeCpu && !this.switching) {
+        this.switching = true;
+        this.makeCpu().then((lm) => { try { this.lm.close(); } catch (er) { /* ignore */ } this.lm = lm; this.mode = 'CPU'; this.errs = 0; }).catch(() => {}).then(() => { this.switching = false; });
+      }
+      return;
+    }
+    // a frame that never changes means the camera stalled: restart playback
+    const sig = res && res.faceLandmarks && res.faceLandmarks[0] ? res.faceLandmarks[0][1].x + res.faceLandmarks[0][1].y : -1;
+    if (sig === this.lastSig) { this.same = (this.same || 0) + 1; if (this.same === 45) { const pp = v.play(); if (pp && pp.catch) pp.catch(() => {}); } }
+    else { this.same = 0; this.lastSig = sig; }
     this.cost = this.cost * 0.8 + (performance.now() - t0) * 0.2;
     if (res && res.faceLandmarks && res.faceLandmarks.length) {
       const L = res.faceLandmarks[0];
@@ -897,7 +914,19 @@ async function enterPosition() {
     $('pos-error').hidden = false;
   }
 }
-function updatePosition() {
+function diagText(ts) {
+  if (!tracker.diagAt || ts - tracker.diagAt > 500) {
+    const n = tracker.dets || 0;
+    tracker.rate = tracker.diagAt ? Math.round((n - (tracker.diagN || 0)) * 1000 / (ts - tracker.diagAt)) : 0;
+    tracker.diagAt = ts; tracker.diagN = n;
+  }
+  const v = tracker.video;
+  return 'v1.3 ' + (tracker.mode || '') + ' | camera ' + (v ? (v.paused ? 'paused' : (v.readyState >= 2 ? 'on' : 'waiting')) + ' ' + (v.videoWidth || 0) + 'x' + (v.videoHeight || 0) : 'none')
+    + ' | reads/s ' + (tracker.rate || 0) + ' | face ' + (tracker.face ? 'yes' : 'no') + ' | angle ' + (tracker.face ? Math.round(tracker.yaw) + '°' : '-')
+    + (tracker.same >= 45 ? ' | frame frozen' : '') + (tracker.errs ? ' | error: ' + String(tracker.lastErr).slice(0, 60) : '');
+}
+function updatePosition(ts) {
+  $('pos-diag').textContent = diagText(ts);
   if (tracker.state !== 'ready') return;
   const face = tracker.face;
   const dist = face && tracker.faceW > 0.16 && tracker.faceW < 0.56;
@@ -961,12 +990,7 @@ function paintCalib(rel, progress) {
 }
 function updateCalibrate(ts) {
   if (tracker.state !== 'ready') return;
-  if (!tracker.diagAt || ts - tracker.diagAt > 500) {
-    const n = tracker.dets || 0, rate = tracker.diagAt ? Math.round((n - (tracker.diagN || 0)) * 1000 / (ts - tracker.diagAt)) : 0;
-    tracker.diagAt = ts; tracker.diagN = n;
-    const v = tracker.video;
-    $('cal-diag').textContent = 'Camera ' + (v && v.readyState >= 2 ? 'on' : 'waiting') + ' | reads per second ' + rate + ' | face ' + (tracker.face ? 'yes' : 'no') + ' | angle ' + (tracker.face ? Math.round(tracker.yaw) + '°' : '-');
-  }
+  $('cal-diag').textContent = diagText(ts);
   const face = tracker.face, yaw = tracker.yaw;
   if (calib.done) { paintCalib(face ? yaw - calib.centre : 0, 1); return; }
   let progress = 0;
@@ -1372,7 +1396,7 @@ function frame(ts) {
   const dt = lastTs ? Math.min(0.25, (ts - lastTs) / 1000) : 0;
   lastTs = ts;
   if (tracker.state === 'ready' && (current === 'position' || current === 'calibrate' || current === 'play')) tracker.step(ts);
-  if (current === 'position') updatePosition();
+  if (current === 'position') updatePosition(ts);
   else if (current === 'calibrate') updateCalibrate(ts);
   else if (current === 'play') { updateGame(ts, dt); drawGame(dt); updateHud(); }
 }
