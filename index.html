@@ -1,0 +1,1444 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0B0F14">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Shoulder Check</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Inter:wght@400;500;600&display=swap">
+<style>
+/* Layout: a one-screen app shell. Every screen is a column (title bar, scrolling body, action bar).
+   The play screen is a lane field over a readout strip, and sits side by side in landscape.
+   One deliberate dark look: the field has to read from the edge of vision, so contrast stays high. */
+:root {
+  color-scheme: dark;
+  --bg: #0B0F14; --field: #070A0E; --surface: #121922;
+  --line: #2B3643; --line-strong: #3D4B5C;
+  --fg: #EAF0F6; --fg-soft: #C9D3DD; --muted: #9BA8B6;
+  --accent: #6FD3F7; --accent-ink: #0B0F14; --gold: #F2CF63; --hazard: #E5707E;
+  --scrim: rgba(11, 15, 20, 0.86);
+  --font-display: 'Barlow Condensed', 'Arial Narrow', 'Roboto Condensed', sans-serif;
+  --font-body: Inter, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+*, *::before, *::after { box-sizing: border-box; }
+html, body { height: 100%; }
+body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 15px; line-height: 1.4; -webkit-text-size-adjust: 100%; overscroll-behavior: none; }
+[hidden] { display: none !important; }
+button, select, input, textarea { font: inherit; color: inherit; }
+button { -webkit-tap-highlight-color: transparent; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+h1, h2, p, ol, ul { margin: 0; }
+
+.app { height: 100%; max-width: 560px; margin: 0 auto; display: flex; flex-direction: column; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.app.wide { max-width: 1280px; }
+.screen { position: relative; flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.bar { display: flex; align-items: center; gap: 8px; min-height: 60px; padding-block: 8px; border-bottom: 1px solid var(--line); flex-shrink: 0; }
+.bar .title { flex: 1; min-width: 0; }
+.wordmark { font-family: var(--font-display); font-weight: 700; font-size: 22px; letter-spacing: 0.1em; line-height: 1; }
+.h { font-family: var(--font-display); font-weight: 700; font-size: 22px; letter-spacing: 0.05em; line-height: 1; text-transform: uppercase; }
+.sub { font-size: 12px; color: var(--muted); margin-top: 3px; }
+.body { flex: 1; min-height: 0; overflow-y: auto; padding-block: 14px; display: flex; flex-direction: column; gap: 14px; }
+.actions { display: grid; gap: 8px; padding-block: 12px 16px; flex-shrink: 0; }
+.actions.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+.btn { min-height: 48px; padding: 0 14px; border-radius: 10px; border: 1px solid var(--line-strong); background: transparent; color: var(--fg); font-weight: 500; font-size: 15px; cursor: pointer; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
+.btn.link { border-color: transparent; color: var(--accent); min-height: 44px; }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.icon-btn { width: 44px; height: 44px; display: grid; place-items: center; border: 1px solid var(--line-strong); border-radius: 22px; background: transparent; cursor: pointer; flex-shrink: 0; padding: 0; }
+.icon-btn.bare { border-color: transparent; }
+
+.label, .eyebrow { font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.hint { font-size: 12px; color: var(--muted); }
+.soft { color: var(--fg-soft); }
+.group { display: flex; flex-direction: column; gap: 6px; }
+.cols { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.seg { display: grid; gap: 6px; }
+.seg.c2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.seg.c3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.seg.c4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.seg.c6 { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+.seg button { min-height: 44px; padding: 0 2px; border-radius: 10px; border: 1px solid var(--line-strong); background: transparent; font-size: 14px; font-weight: 500; cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
+select, input[type="text"] { width: 100%; height: 48px; padding: 0 12px; border-radius: 10px; border: 1px solid var(--line-strong); background: var(--surface); font-size: 15px; }
+.switch-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 48px; }
+.switch { width: 56px; height: 44px; padding: 0; border: 0; background: transparent; display: flex; align-items: center; cursor: pointer; flex-shrink: 0; }
+.switch span { width: 56px; height: 30px; padding: 3px; border-radius: 15px; background: var(--line-strong); display: flex; justify-content: flex-start; }
+.switch span::after { content: ""; width: 24px; height: 24px; border-radius: 12px; background: var(--fg); }
+.switch[aria-pressed="true"] span { background: var(--accent); justify-content: flex-end; }
+.switch[aria-pressed="true"] span::after { background: var(--accent-ink); }
+
+.card { padding: 14px; border-radius: 14px; border: 1px solid var(--line); background: var(--surface); display: flex; flex-direction: column; gap: 10px; }
+.chip { font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 10px; border: 1px solid var(--line-strong); white-space: nowrap; }
+.chip.ok { border-color: var(--accent); color: var(--accent); }
+.chip.dash { border-style: dashed; color: var(--muted); }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.row { display: flex; align-items: center; gap: 10px; }
+.between { justify-content: space-between; }
+.tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.tiles.t3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.tile { padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; min-width: 0; display: flex; flex-direction: column; justify-content: space-between; gap: 2px; }
+.num { font-family: var(--font-display); font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.tile .num { font-size: 26px; }
+.gold { color: var(--gold); } .hazard { color: var(--hazard); }
+
+/* home */
+.feature h1 { font-family: var(--font-display); font-weight: 700; font-size: 38px; letter-spacing: 0.02em; line-height: 1; text-transform: uppercase; text-wrap: balance; }
+.demo { width: 100%; height: 116px; display: block; border-radius: 10px; border: 1px solid var(--line); background: var(--field); }
+.steps { padding-left: 20px; display: flex; flex-direction: column; gap: 6px; color: var(--fg-soft); font-size: 14px; }
+details.roadmap { border: 1px solid var(--line); border-radius: 14px; padding: 0 14px; }
+details.roadmap summary { min-height: 48px; display: flex; align-items: center; cursor: pointer; font-weight: 500; }
+.roadmap .cat { padding-block: 4px 12px; display: flex; flex-direction: column; gap: 6px; }
+.roadmap li { list-style: none; font-size: 13px; color: var(--fg-soft); }
+.roadmap ul { padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.roadmap b { color: var(--fg); font-weight: 600; }
+
+/* camera */
+.preview { position: relative; width: 100%; aspect-ratio: 4 / 3; max-height: 44vh; border-radius: 14px; border: 1px dashed var(--line-strong); background: var(--field); overflow: hidden; align-self: center; }
+video { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); display: block; background: var(--field); }
+.preview svg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.preview .msg { position: absolute; inset: 0; display: grid; place-items: center; padding: 16px; text-align: center; color: var(--fg-soft); background: var(--field); }
+.checks { display: flex; flex-direction: column; gap: 10px; }
+.checks .n { width: 26px; height: 26px; border-radius: 13px; border: 1px solid var(--line-strong); display: grid; place-items: center; font-size: 12px; font-weight: 600; flex-shrink: 0; }
+.checks .row { align-items: flex-start; gap: 12px; }
+.note { padding: 10px 12px; border-radius: 10px; background: var(--surface); font-size: 12px; color: var(--fg-soft); }
+
+/* calibrate */
+.pills { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.pill { height: 36px; display: grid; place-items: center; border-radius: 18px; border: 1px solid var(--line-strong); font-size: 13px; font-weight: 500; color: var(--fg-soft); }
+.pill.on { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
+.pill.done { border-color: var(--accent); color: var(--accent); }
+.gauge { width: 100%; max-width: 326px; height: auto; align-self: center; font-family: var(--font-body); }
+.big { font-family: var(--font-display); font-weight: 700; font-size: 56px; line-height: 1; font-variant-numeric: tabular-nums; }
+.track { height: 8px; border-radius: 4px; background: var(--line); overflow: hidden; }
+.track > div { height: 100%; width: 0; border-radius: 4px; background: var(--accent); }
+.cal-thumb { width: 84px; aspect-ratio: 4 / 3; border-radius: 8px; overflow: hidden; flex-shrink: 0; background: var(--field); }
+
+/* play */
+#play { gap: 8px; padding-block: 8px 12px; }
+.hud { display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+.hud .stats { flex: 1; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.hud .num { font-size: 26px; font-weight: 700; line-height: 1; }
+.stage { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 4px; }
+.field-wrap { position: relative; flex: 1; min-height: 140px; border: 1px solid var(--line); border-radius: 14px; overflow: hidden; background: var(--field); }
+#field { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.countdown { position: absolute; inset: 0; display: grid; place-items: start center; padding-top: 16%; text-align: center; pointer-events: none; font-family: var(--font-display); font-weight: 700; font-size: 120px; line-height: 1; }
+.countdown small { display: block; font-family: var(--font-body); font-weight: 500; font-size: 15px; color: var(--fg-soft); margin-top: 8px; }
+.lane-labels { display: grid; text-align: center; font-size: 11px; font-weight: 600; color: var(--muted); }
+.lane-labels .on { color: var(--fg); }
+.readout { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); flex-shrink: 0; }
+.thumb { width: 96px; aspect-ratio: 4 / 3; border-radius: 8px; overflow: hidden; background: var(--field); flex-shrink: 0; }
+.dir { font-family: var(--font-display); font-weight: 700; font-size: 38px; line-height: 1; letter-spacing: 0.04em; }
+.dir.left { color: var(--accent); } .dir.right { color: var(--gold); }
+.ang { font-family: var(--font-display); font-weight: 600; font-size: 24px; line-height: 1; font-variant-numeric: tabular-nums; }
+.touch { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; flex-shrink: 0; }
+.touch .btn { min-height: 72px; font-size: 16px; touch-action: none; user-select: none; -webkit-user-select: none; }
+.touch .btn.down { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.overlay { position: absolute; inset: 0; z-index: 5; display: grid; place-items: center; padding-block: 16px; background: var(--scrim); overflow-y: auto; }
+.overlay .card { width: 100%; max-width: 420px; padding: 20px; gap: 14px; border-color: var(--line-strong); }
+.overlay h2 { font-family: var(--font-display); font-weight: 700; font-size: 34px; letter-spacing: 0.04em; line-height: 1; text-transform: uppercase; }
+.tips { padding-left: 18px; display: flex; flex-direction: column; gap: 6px; color: var(--fg-soft); font-size: 14px; }
+@media (orientation: landscape) and (min-width: 720px) {
+  #play { display: grid; grid-template-columns: minmax(0, 1fr) 320px; grid-template-rows: auto auto auto 1fr; column-gap: 16px; }
+  #play .stage { grid-column: 1; grid-row: 1 / -1; }
+  #play .hud, #play .readout, #play .touch { grid-column: 2; }
+  #play .hud { flex-wrap: wrap; }
+}
+
+/* results and progress */
+.score { font-family: var(--font-display); font-weight: 700; font-size: 56px; line-height: 1; font-variant-numeric: tabular-nums; }
+.lr { display: flex; flex-direction: column; gap: 8px; }
+.lr .name { font-size: 12px; color: var(--muted); text-align: center; }
+.lr .bars { display: grid; grid-template-columns: 56px minmax(0, 1fr) minmax(0, 1fr) 56px; gap: 4px; align-items: center; font-weight: 600; font-size: 13px; font-variant-numeric: tabular-nums; }
+.lr .bars > div:nth-child(2), .lr .bars > div:nth-child(3) { height: 14px; display: flex; }
+.lr .bars > div:nth-child(2) { justify-content: flex-end; }
+.lr .bars i { display: block; height: 100%; width: 0; }
+.lr .bars i.l { background: var(--accent); border-radius: 3px 0 0 3px; }
+.lr .bars i.r { background: var(--gold); border-radius: 0 3px 3px 0; }
+.lr .bars > div:last-child { text-align: right; }
+.legend { display: flex; gap: 12px; font-size: 11px; color: var(--fg-soft); }
+.legend span { display: flex; align-items: center; gap: 5px; }
+.legend i { width: 10px; height: 10px; border-radius: 2px; display: block; }
+.chart { height: 120px; display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 8px; align-items: end; border-bottom: 1px solid var(--line-strong); }
+.chart .col { height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 3px; min-width: 0; }
+.chart .col span { font-size: 11px; color: var(--fg-soft); font-variant-numeric: tabular-nums; }
+.chart .col i { display: block; width: 100%; border-radius: 3px 3px 0 0; background: var(--line-strong); }
+.chart .col:last-child i { background: var(--accent); }
+.rounds { display: flex; flex-direction: column; }
+.rounds .r { min-height: 44px; display: flex; align-items: center; gap: 10px; border-top: 1px solid var(--line); font-size: 13px; padding-block: 6px; }
+.rounds .r .d { width: 112px; color: var(--muted); flex-shrink: 0; }
+.rounds .r .s { flex: 1; min-width: 0; }
+.rounds .r .num { font-size: 20px; }
+textarea { width: 100%; min-height: 120px; border-radius: 10px; border: 1px solid var(--line-strong); background: var(--surface); padding: 10px; font-size: 12px; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+<style>
+:root { padding: env(safe-area-inset-top, 0px) 0 env(safe-area-inset-bottom, 0px); }
+html { box-sizing: border-box; }
+</style>
+</head>
+<body>
+<div class="app" id="app">
+
+  <!-- HOME -->
+  <section class="screen" id="home">
+    <header class="bar">
+      <div class="title">
+        <div class="wordmark">REACTFORGE</div>
+        <div class="sub">Head-controlled training</div>
+      </div>
+      <button type="button" class="btn" id="nav-progress">Progress</button>
+    </header>
+    <div class="body">
+      <div class="card feature">
+        <div class="row between"><span class="eyebrow">Peripheral vision game</span><span class="chip">Version 1</span></div>
+        <canvas class="demo" id="demo" aria-hidden="true"></canvas>
+        <h1>Shoulder Check</h1>
+        <p class="soft">Turn your head to steer. Dodge the blocks, chase the stars. Your eyes do the work from the edge of your vision.</p>
+        <div class="actions two" style="padding-block: 0;">
+          <button type="button" class="btn primary" id="go-setup">Play</button>
+          <button type="button" class="btn" id="toggle-how" aria-expanded="false" aria-controls="how">How it works</button>
+        </div>
+        <ol class="steps" id="how" hidden>
+          <li>Prop the phone or tablet upright at eye level and stand an arm's length away.</li>
+          <li>Turn your head to move. Hold the turn to hold the lane. Shoulders stay square to the screen.</li>
+          <li>Read the lanes from the corner of your eye. Avoid red blocks, collect gold stars.</li>
+          <li>Choose Opposite mapping to make a left turn move you right.</li>
+        </ol>
+      </div>
+
+      <div class="group">
+        <label class="label" for="athlete">Athlete</label>
+        <input type="text" id="athlete" autocomplete="off" maxlength="40" placeholder="Name for saved rounds">
+      </div>
+
+      <div class="tiles t3">
+        <div class="tile"><div class="label">Rounds</div><div class="num" id="home-rounds">0</div></div>
+        <div class="tile"><div class="label">Best score</div><div class="num" id="home-best">-</div></div>
+        <div class="tile"><div class="label">Best reaction</div><div class="num" id="home-rt">-</div></div>
+      </div>
+
+      <details class="roadmap">
+        <summary>More games on the way</summary>
+        <div class="cat">
+          <div class="label">Performance</div>
+          <ul>
+            <li><b>Edge Alert.</b> Head stays centred. Snap toward real targets at the screen edges, ignore decoys.</li>
+            <li><b>Rule Switch.</b> Turn toward gold, away from red. Then the rule flips.</li>
+            <li><b>Snapshot.</b> Check your shoulder, look back, point to what moved.</li>
+          </ul>
+        </div>
+        <div class="cat">
+          <div class="label">Rehab and therapy, clinician-directed</div>
+          <ul>
+            <li><b>Range Builder.</b> Follow a slow target to the edge of comfortable range and hold.</li>
+            <li><b>Slow Lanes.</b> Shoulder Check at a seated pace with large objects and small turns.</li>
+            <li><b>Steady Gaze.</b> Eyes on a centre target while the head turns to a set beat.</li>
+          </ul>
+        </div>
+        <div class="cat">
+          <div class="label">Hands-free access</div>
+          <ul>
+            <li><b>Bubble Pop.</b> Point with your nose and dwell to pop.</li>
+            <li><b>Trace.</b> Steer a dot along a path with small, steady head movement.</li>
+            <li><b>One Switch.</b> Timing games where any single movement or sound is the button.</li>
+          </ul>
+        </div>
+      </details>
+    </div>
+  </section>
+
+  <!-- SETUP -->
+  <section class="screen" id="setup" hidden>
+    <header class="bar">
+      <button type="button" class="icon-btn bare" id="set-back" aria-label="Back to home"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg></button>
+      <div class="title"><div class="h">Shoulder Check</div><div class="sub">Round setup</div></div>
+    </header>
+    <div class="body">
+      <div class="group">
+        <div class="label" id="l-preset">Preset</div>
+        <div class="seg c4" role="group" aria-labelledby="l-preset" data-key="preset">
+          <button type="button" data-val="starter">Starter</button>
+          <button type="button" data-val="standard">Standard</button>
+          <button type="button" data-val="reverse">Reverse</button>
+          <button type="button" data-val="custom">Custom</button>
+        </div>
+      </div>
+      <div class="group">
+        <label class="label" for="ctl-control">Control with</label>
+        <select id="ctl-control">
+          <option value="head">Head turn (front camera)</option>
+          <option value="touch">Touch or keyboard (practice)</option>
+        </select>
+        <div class="hint" id="hint-control"></div>
+      </div>
+      <div class="group">
+        <div class="label" id="l-mapping">Direction mapping</div>
+        <div class="seg c2" role="group" aria-labelledby="l-mapping" data-key="mapping">
+          <button type="button" data-val="same">Same</button>
+          <button type="button" data-val="opposite">Opposite</button>
+        </div>
+        <div class="hint" id="hint-mapping"></div>
+      </div>
+      <div class="cols">
+        <div class="group">
+          <div class="label" id="l-lanes">Lanes</div>
+          <div class="seg c2" role="group" aria-labelledby="l-lanes" data-key="lanes">
+            <button type="button" data-val="3">3</button>
+            <button type="button" data-val="5">5</button>
+          </div>
+        </div>
+        <div class="group">
+          <div class="label" id="l-length">Round length</div>
+          <div class="seg c3" role="group" aria-labelledby="l-length" data-key="length">
+            <button type="button" data-val="60">60 s</button>
+            <button type="button" data-val="90">90 s</button>
+            <button type="button" data-val="120">120 s</button>
+          </div>
+        </div>
+      </div>
+      <div class="group" id="grp-depth">
+        <div class="label" id="l-depth">Turn depth for the outside lane</div>
+        <div class="seg c4" role="group" aria-labelledby="l-depth" data-key="depth">
+          <button type="button" data-val="45">45°</button>
+          <button type="button" data-val="60">60°</button>
+          <button type="button" data-val="75">75°</button>
+          <button type="button" data-val="90">90°</button>
+        </div>
+        <div class="hint" id="hint-depth"></div>
+      </div>
+      <div class="group">
+        <div class="label" id="l-speed">Speed</div>
+        <div class="seg c6" role="group" aria-labelledby="l-speed" data-key="speed">
+          <button type="button" data-val="1">1</button>
+          <button type="button" data-val="2">2</button>
+          <button type="button" data-val="3">3</button>
+          <button type="button" data-val="4">4</button>
+          <button type="button" data-val="5">5</button>
+          <button type="button" data-val="auto">Auto</button>
+        </div>
+      </div>
+      <div class="group">
+        <div class="label" id="l-bias">Send more stars to</div>
+        <div class="seg c3" role="group" aria-labelledby="l-bias" data-key="bias">
+          <button type="button" data-val="left">Left turns</button>
+          <button type="button" data-val="none">Balanced</button>
+          <button type="button" data-val="right">Right turns</button>
+        </div>
+      </div>
+      <div class="switch-row">
+        <div><div style="font-weight: 500;">Sound cues</div><div class="hint">Chime on a star, buzz on a hit. Useful when you are turned away.</div></div>
+        <button type="button" class="switch" id="sound" aria-pressed="true" aria-label="Sound cues"><span></span></button>
+      </div>
+    </div>
+    <div class="actions"><button type="button" class="btn primary" id="set-next">Next: position your device</button></div>
+  </section>
+
+  <!-- POSITION -->
+  <section class="screen" id="position" hidden>
+    <header class="bar">
+      <button type="button" class="icon-btn bare" id="pos-back" aria-label="Back to round setup"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg></button>
+      <div class="title"><div class="h">Position check</div><div class="sub">Set up your space</div></div>
+    </header>
+    <div class="body">
+      <div class="preview">
+        <video id="pos-video" playsinline muted autoplay></video>
+        <svg viewBox="0 0 400 300" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><ellipse cx="200" cy="140" rx="78" ry="104" fill="none" stroke="#6FD3F7" stroke-width="2" stroke-dasharray="7 7"></ellipse></svg>
+        <div class="msg" id="pos-msg">Starting camera</div>
+      </div>
+      <div class="chips" id="pos-chips">
+        <span class="chip" id="chip-face">Face found</span>
+        <span class="chip" id="chip-dist">Distance good</span>
+        <span class="chip" id="chip-centre">Centred</span>
+      </div>
+      <div class="card" id="pos-error" hidden>
+        <div id="pos-error-text"></div>
+        <div class="actions two" style="padding-block: 0;">
+          <button type="button" class="btn" id="pos-retry">Try again</button>
+          <button type="button" class="btn primary" id="pos-touch">Use touch control</button>
+        </div>
+      </div>
+      <div class="checks">
+        <div class="row"><div class="n">1</div><div>Prop the device upright at eye level. Do not hold it.</div></div>
+        <div class="row"><div class="n">2</div><div>Stand or sit about an arm's length away, head inside the outline.</div></div>
+        <div class="row"><div class="n">3</div><div>Keep your shoulders square to the screen. Only your head turns.</div></div>
+      </div>
+      <div class="note">Video stays on this device. Nothing is recorded or uploaded. Only angles and scores are saved.</div>
+    </div>
+    <div class="actions"><button type="button" class="btn primary" id="pos-next" disabled>Next: calibrate your range</button></div>
+  </section>
+
+  <!-- CALIBRATE -->
+  <section class="screen" id="calibrate" hidden>
+    <header class="bar">
+      <button type="button" class="icon-btn bare" id="cal-back" aria-label="Back to position check"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg></button>
+      <div class="title"><div class="h">Calibrate</div><div class="sub">Find your range</div></div>
+      <div class="cal-thumb"><video id="cal-video" playsinline muted autoplay></video></div>
+    </header>
+    <div class="body">
+      <div class="pills">
+        <div class="pill" id="cal-p0">Centre</div>
+        <div class="pill" id="cal-p1">Left</div>
+        <div class="pill" id="cal-p2">Right</div>
+      </div>
+      <div class="card" style="align-items: center;">
+        <svg class="gauge" viewBox="0 0 326 190" role="img" aria-label="Head angle gauge">
+          <path d="M33 160A130 130 0 0 1 293 160" fill="none" stroke="#2B3643" stroke-width="10" stroke-linecap="round"></path>
+          <path id="g-left" d="" fill="none" stroke="#3F7F99" stroke-width="10" stroke-linecap="round"></path>
+          <path id="g-right" d="" fill="none" stroke="#9C8A4B" stroke-width="10" stroke-linecap="round"></path>
+          <path id="g-live" d="" fill="none" stroke="#6FD3F7" stroke-width="10" stroke-linecap="round"></path>
+          <circle id="g-dot" cx="163" cy="30" r="9" fill="#EAF0F6"></circle>
+          <rect x="131" y="146" width="64" height="18" rx="9" fill="none" stroke="#3D4B5C" stroke-width="2"></rect>
+          <circle cx="163" cy="155" r="20" fill="#121922" stroke="#EAF0F6" stroke-width="2"></circle>
+          <g id="g-nose"><path d="M163 124l6 11h-12z" fill="#6FD3F7"></path></g>
+          <text x="163" y="14" text-anchor="middle" font-size="11" fill="#9BA8B6">0°</text>
+          <text x="33" y="184" text-anchor="middle" font-size="11" fill="#9BA8B6">90° L</text>
+          <text x="293" y="184" text-anchor="middle" font-size="11" fill="#9BA8B6">90° R</text>
+        </svg>
+        <div class="row" style="align-items: baseline;"><div class="big" id="cal-angle">0°</div><div class="soft" id="cal-angle-label">facing the screen</div></div>
+      </div>
+      <div id="cal-instr" style="font-size: 16px;">Look straight at the screen and hold still.</div>
+      <div class="group">
+        <div class="track"><div id="cal-bar"></div></div>
+        <div class="hint" id="cal-hold">Waiting</div>
+      </div>
+      <div class="tiles t3">
+        <div class="tile"><div class="label">Centre</div><div class="num" id="cal-c">-</div></div>
+        <div class="tile"><div class="label">Left</div><div class="num" id="cal-l">-</div></div>
+        <div class="tile"><div class="label">Right</div><div class="num" id="cal-r">-</div></div>
+      </div>
+      <div class="hint">Lanes scale to your range, so the outside lane is always reachable. A plus sign means you turned past what the camera can see. Turn only as far as is comfortable and stop if anything hurts.</div>
+      <button type="button" class="btn link" id="cal-last" hidden></button>
+    </div>
+    <div class="actions two">
+      <button type="button" class="btn" id="cal-redo">Redo</button>
+      <button type="button" class="btn primary" id="cal-start" disabled>Start round</button>
+    </div>
+  </section>
+
+  <!-- PLAY -->
+  <section class="screen" id="play" hidden>
+    <div class="hud">
+      <button type="button" class="icon-btn" id="btn-pause" aria-label="Pause round"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="M8 5v14"></path><path d="M16 5v14"></path></svg></button>
+      <div class="stats">
+        <div><div class="label">Stars</div><div class="num gold" id="hud-stars">0</div></div>
+        <div><div class="label">Hits</div><div class="num hazard" id="hud-hits">0</div></div>
+        <div><div class="label">Time left</div><div class="num" id="hud-time">0:00</div></div>
+      </div>
+    </div>
+    <div class="stage">
+      <div class="field-wrap" id="field-wrap">
+        <canvas id="field" role="img" aria-label="Game field with falling blocks and stars"></canvas>
+        <div class="countdown" id="countdown" hidden></div>
+      </div>
+      <div class="lane-labels" id="lane-labels"></div>
+      <div class="hint" style="text-align: center;" id="lane-caption">Head position that holds each lane</div>
+    </div>
+    <div class="readout">
+      <div class="thumb" id="thumb"><video id="play-video" playsinline muted autoplay></video></div>
+      <div style="min-width: 0; display: flex; flex-direction: column; gap: 5px;">
+        <div class="row" style="align-items: baseline;"><div class="dir" id="dir">CENTRE</div><div class="ang" id="ang"></div></div>
+        <div class="chips"><span class="chip" id="map-chip"></span><span class="chip" id="trk"></span></div>
+      </div>
+    </div>
+    <div class="touch" id="touch" hidden>
+      <button type="button" class="btn" id="t-left">Hold: turn left</button>
+      <button type="button" class="btn" id="t-right">Hold: turn right</button>
+    </div>
+    <div class="overlay" id="pause" hidden>
+      <div class="card">
+        <h2 id="pause-title">Paused</h2>
+        <div id="pause-reason"></div>
+        <ul class="tips" id="pause-tips" hidden>
+          <li>Step back into frame and face the screen.</li>
+          <li>Check the light on your face.</li>
+          <li>Keep the device propped at eye level.</li>
+        </ul>
+        <div class="actions" style="padding-block: 0;">
+          <button type="button" class="btn primary" id="btn-resume">Resume</button>
+          <button type="button" class="btn" id="btn-recal">Recalibrate</button>
+          <button type="button" class="btn link" id="btn-end">End round and see results</button>
+        </div>
+        <div class="hint" id="pause-foot">A full turn can hide your face from the camera. The game holds your lane while you are turned and only pauses if it loses you near centre.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- RESULTS -->
+  <section class="screen" id="results" hidden>
+    <header class="bar">
+      <div class="title"><div class="h">Round complete</div><div class="sub" id="res-sub">Shoulder Check</div></div>
+      <button type="button" class="icon-btn bare" id="res-home" aria-label="Close results and go home"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12"></path><path d="M18 6L6 18"></path></svg></button>
+    </header>
+    <div class="body">
+      <div class="chips" id="res-chips"></div>
+      <div class="card" style="flex-direction: row; align-items: flex-end; justify-content: space-between;">
+        <div><div class="label">Score</div><div class="score" id="res-score">0</div></div>
+        <div style="text-align: right;"><div class="label">Wrong-way turns</div><div class="num" style="font-size: 30px;" id="res-wrong">0</div></div>
+      </div>
+      <div class="tiles">
+        <div class="tile"><div class="label">Stars caught</div><div class="num gold" id="res-stars">0</div></div>
+        <div class="tile"><div class="label">Blocks hit</div><div class="num hazard" id="res-hits">0</div></div>
+        <div class="tile"><div class="label">Avg reaction</div><div class="num" id="res-rt">-</div></div>
+        <div class="tile"><div class="label">Time turned away</div><div class="num" id="res-away">-</div></div>
+      </div>
+      <div class="lr" id="res-lr">
+        <div class="row between">
+          <div class="h" style="font-size: 20px;">Left vs right</div>
+          <div class="legend"><span><i style="background: var(--accent);"></i>Left turn</span><span><i style="background: var(--gold);"></i>Right turn</span></div>
+        </div>
+        <div id="lr-rt"><div class="name">Reaction time</div><div class="bars"><div id="lr-rt-l"></div><div><i class="l" id="lr-rt-lb"></i></div><div><i class="r" id="lr-rt-rb"></i></div><div id="lr-rt-r"></div></div></div>
+        <div id="lr-max"><div class="name">Max turn seen by the camera</div><div class="bars"><div id="lr-max-l"></div><div><i class="l" id="lr-max-lb"></i></div><div><i class="r" id="lr-max-rb"></i></div><div id="lr-max-r"></div></div></div>
+        <div id="lr-st"><div class="name">Stars caught while turned</div><div class="bars"><div id="lr-st-l"></div><div><i class="l" id="lr-st-lb"></i></div><div><i class="r" id="lr-st-rb"></i></div><div id="lr-st-r"></div></div></div>
+      </div>
+      <div class="note row" id="res-sugg" hidden>
+        <div style="flex: 1;" id="res-sugg-text"></div>
+        <button type="button" class="btn" id="res-sugg-btn" style="min-height: 44px; flex-shrink: 0;"></button>
+      </div>
+      <div class="hint" id="res-note"></div>
+    </div>
+    <div class="actions two">
+      <button type="button" class="btn" id="res-setup">Change setup</button>
+      <button type="button" class="btn primary" id="res-again">Play again</button>
+    </div>
+  </section>
+
+  <!-- PROGRESS -->
+  <section class="screen" id="progress" hidden>
+    <header class="bar">
+      <button type="button" class="icon-btn bare" id="prog-back" aria-label="Back to home"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg></button>
+      <div class="title"><div class="h">Progress</div><div class="sub" id="prog-athlete"></div></div>
+    </header>
+    <div class="body">
+      <div class="note" id="prog-empty">No rounds saved yet. Finish a round and it will show up here.</div>
+      <div class="card" id="prog-rt" hidden>
+        <div class="row between" style="align-items: baseline;"><div style="font-weight: 600;">Reaction time by round</div><div class="num" style="font-size: 22px;" id="prog-latest"></div></div>
+        <div class="chart" id="prog-chart"></div>
+        <div class="hint">Most recent rounds, oldest on the left, in seconds. Lower is faster.</div>
+      </div>
+      <div class="card lr" id="prog-turn" hidden>
+        <div class="row between"><div style="font-weight: 600;">Max turn, latest round</div><span class="chip" id="pt-gap"></span></div>
+        <div class="bars"><div id="pt-l"></div><div><i class="l" id="pt-lb"></i></div><div><i class="r" id="pt-rb"></i></div><div id="pt-r"></div></div>
+        <div class="legend"><span><i style="background: var(--accent);"></i>Left</span><span><i style="background: var(--gold);"></i>Right</span></div>
+      </div>
+      <div class="card" id="prog-recent" hidden>
+        <div style="font-weight: 600;">Recent rounds</div>
+        <div class="rounds" id="prog-list"></div>
+      </div>
+      <textarea id="prog-csv" readonly hidden aria-label="Results as CSV"></textarea>
+    </div>
+    <div class="actions two">
+      <button type="button" class="btn" id="prog-clear">Clear rounds</button>
+      <button type="button" class="btn primary" id="prog-copy">Copy results as CSV</button>
+    </div>
+  </section>
+
+</div>
+
+<script>
+(() => {
+'use strict';
+
+/* ---------- config ---------- */
+const MP_LIB = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14';
+const MP_MODEL = 'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task';
+const DEG = 180 / Math.PI;
+const YA = 0.86;          // avatar row, as a fraction of field height
+const HIT = 0.05;         // half-height of the contact window
+const HOLD_MAX = 8000;    // ms a full turn may hide the face before the round pauses
+const LOST_PAUSE = 2000;  // ms without a face near centre before the round pauses
+const SPEED = { 1: { fall: 5.2, gap: 2.1 }, 2: { fall: 4.3, gap: 1.75 }, 3: { fall: 3.5, gap: 1.45 }, 4: { fall: 2.8, gap: 1.2 }, 5: { fall: 2.2, gap: 1.0 } };
+const PRESETS = {
+  starter: { mapping: 'same', lanes: 3, depth: 45, speed: 1, length: 60 },
+  standard: { mapping: 'same', lanes: 5, depth: 60, speed: 3, length: 90 },
+  reverse: { mapping: 'opposite', lanes: 5, depth: 75, speed: 2, length: 90 }
+};
+const C = { field: '#070A0E', sep: '#1C2530', dash: '#18212B', hazard: '#E5707E', gold: '#F2CF63', accent: '#6FD3F7', ink: '#0B0F14', eye: '#E9EEF3', iris: '#4FA3D9' };
+
+/* ---------- helpers ---------- */
+const $ = (id) => document.getElementById(id);
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const mean = (a) => (a.length ? a.reduce((s, v) => s + v, 0) / a.length : null);
+const median = (a) => { if (!a.length) return null; const s = a.slice().sort((x, y) => x - y); return s[Math.floor(s.length / 2)]; };
+const fmtS = (ms) => (ms == null ? '-' : (ms / 1000).toFixed(2) + ' s');
+const fmtDeg = (d) => (d == null ? '-' : Math.round(d) + '°');
+const store = {
+  get(k, d) { try { const v = localStorage.getItem('sc.' + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem('sc.' + k, JSON.stringify(v)); } catch (e) { /* storage is optional */ } }
+};
+
+/* ---------- state ---------- */
+const settings = Object.assign({ preset: 'standard', control: 'head', mapping: 'same', lanes: 5, depth: 60, speed: 3, length: 90, sound: true, bias: 'none' }, store.get('settings', {}));
+let cal = store.get('cal', null);
+let rounds = store.get('rounds', []);
+if (!Array.isArray(rounds)) rounds = [];
+let athlete = store.get('athlete', '') || '';
+let cameraBlocked = !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia;
+try { const fp = document.featurePolicy || document.permissionsPolicy; if (fp && fp.allowsFeature && !fp.allowsFeature('camera')) cameraBlocked = true; } catch (e) { /* not supported: find out on first use */ }
+if (cameraBlocked) settings.control = 'touch';
+let current = 'home';
+let g = null;            // the round in play
+let lastRec = null;
+const SCREENS = ['home', 'setup', 'position', 'calibrate', 'play', 'results', 'progress'];
+
+/* ---------- sound ---------- */
+const audio = {
+  ctx: null,
+  init() {
+    if (!settings.sound) return;
+    try {
+      this.ctx = this.ctx || new (window.AudioContext || window.webkitAudioContext)();
+      if (this.ctx.state === 'suspended') this.ctx.resume();
+    } catch (e) { this.ctx = null; }
+  },
+  tone(f, d, type, vol, delay) {
+    if (!this.ctx || !settings.sound) return;
+    try {
+      const t = this.ctx.currentTime + (delay || 0);
+      const o = this.ctx.createOscillator();
+      const gn = this.ctx.createGain();
+      o.type = type || 'sine';
+      o.frequency.value = f;
+      gn.gain.setValueAtTime(0.0001, t);
+      gn.gain.exponentialRampToValueAtTime(vol || 0.15, t + 0.012);
+      gn.gain.exponentialRampToValueAtTime(0.0001, t + d);
+      o.connect(gn); gn.connect(this.ctx.destination);
+      o.start(t); o.stop(t + d + 0.03);
+    } catch (e) { /* sound is optional */ }
+  },
+  star() { this.tone(880, 0.09, 'sine', 0.2); this.tone(1320, 0.16, 'sine', 0.2, 0.07); },
+  hit() { this.tone(110, 0.28, 'sawtooth', 0.22); },
+  tick() { this.tone(1500, 0.03, 'square', 0.035); },
+  count() { this.tone(660, 0.1, 'sine', 0.16); },
+  go() { this.tone(990, 0.28, 'sine', 0.2); },
+  end() { this.tone(660, 0.16, 'sine', 0.18); this.tone(440, 0.32, 'sine', 0.18, 0.17); }
+};
+
+let wake = null;
+async function holdWake() { try { if (navigator.wakeLock) wake = await navigator.wakeLock.request('screen'); } catch (e) { wake = null; } }
+function releaseWake() { try { if (wake) wake.release(); } catch (e) { /* ignore */ } wake = null; }
+
+/* ---------- head tracker ---------- */
+const tracker = {
+  state: 'off', error: null, stream: null, lm: null, video: null, promise: null,
+  face: false, yaw: 0, has: false, faceW: 0, cx: 0.5, vt: -1, lastDet: 0, cost: 0,
+  start(onStatus) {
+    if (this.state === 'ready' || this.state === 'starting') return this.promise;
+    this.state = 'starting'; this.error = null;
+    this.promise = (async () => {
+      try {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) throw Object.assign(new Error('no camera api'), { kind: 'unsupported' });
+        onStatus('Starting camera');
+        try {
+          this.stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 30 } }, audio: false });
+        } catch (e) {
+          const n = e && e.name;
+          throw Object.assign(e instanceof Error ? e : new Error(String(e)), { kind: (n === 'NotAllowedError' || n === 'SecurityError') ? 'denied' : (n === 'NotFoundError' || n === 'OverconstrainedError') ? 'nocamera' : 'camera' });
+        }
+        if (!this.lm) {
+          onStatus('Loading head tracking. About 4 MB the first time.');
+          try {
+            const vision = await import(MP_LIB + '/vision_bundle.mjs');
+            const fileset = await vision.FilesetResolver.forVisionTasks(MP_LIB + '/wasm');
+            const opts = (delegate) => ({ baseOptions: { modelAssetPath: MP_MODEL, delegate }, runningMode: 'VIDEO', numFaces: 1, outputFacialTransformationMatrixes: true });
+            try { this.lm = await vision.FaceLandmarker.createFromOptions(fileset, opts('GPU')); }
+            catch (e) { this.lm = await vision.FaceLandmarker.createFromOptions(fileset, opts('CPU')); }
+          } catch (e) {
+            throw Object.assign(e instanceof Error ? e : new Error(String(e)), { kind: 'model' });
+          }
+        }
+        this.state = 'ready';
+      } catch (e) {
+        this.stopStream();
+        this.state = 'error'; this.error = e;
+        throw e;
+      }
+    })();
+    return this.promise;
+  },
+  attach(el) {
+    if (!this.stream) return;
+    if (this.video && this.video !== el) { try { this.video.srcObject = null; } catch (e) { /* ignore */ } }
+    this.video = el; this.vt = -1;
+    if (el.srcObject !== this.stream) el.srcObject = this.stream;
+    const p = el.play(); if (p && p.catch) p.catch(() => {});
+  },
+  stopStream() {
+    if (this.stream) { try { this.stream.getTracks().forEach((t) => t.stop()); } catch (e) { /* ignore */ } }
+    this.stream = null;
+    if (this.video) { try { this.video.srcObject = null; } catch (e) { /* ignore */ } }
+    this.video = null; this.face = false; this.has = false;
+  },
+  stop() { if (this.state === 'starting') return; this.stopStream(); this.state = 'off'; },
+  step(ts) {
+    const v = this.video;
+    if (!this.lm || !v || v.readyState < 2) return;
+    if (v.currentTime === this.vt) return;
+    if (ts - this.lastDet < (this.cost > 45 ? 90 : 0)) return;
+    this.vt = v.currentTime; this.lastDet = ts;
+    const t0 = performance.now();
+    let res;
+    try { res = this.lm.detectForVideo(v, ts); } catch (e) { return; }
+    this.cost = this.cost * 0.8 + (performance.now() - t0) * 0.2;
+    if (res && res.faceLandmarks && res.faceLandmarks.length) {
+      const L = res.faceLandmarks[0];
+      const a = L[234], b = L[454];
+      const M = res.facialTransformationMatrixes && res.facialTransformationMatrixes[0];
+      // Negative yaw = the player's left. The camera image is not mirrored, so the sign flips here.
+      const raw = (M && M.data) ? -Math.atan2(M.data[8], M.data[10]) * DEG : -Math.atan2(b.z - a.z, b.x - a.x) * DEG;
+      this.yaw = this.has ? this.yaw + (raw - this.yaw) * 0.6 : raw;
+      this.has = true; this.face = true;
+      this.faceW = Math.hypot(b.x - a.x, b.y - a.y);
+      this.cx = (a.x + b.x) / 2;
+    } else {
+      this.face = false; this.has = false;
+    }
+  }
+};
+
+function cameraErrorText(e) {
+  const k = e && e.kind;
+  if (k === 'unsupported') return 'This page cannot open a camera in this browser. Open the app over https in Chrome or Safari, or use touch control.';
+  if (k === 'denied') return 'Camera access is blocked for this page. Allow the camera in the browser site settings and try again. Inside the Claude preview the camera is always blocked, so use touch control there.';
+  if (k === 'nocamera') return 'No camera was found on this device. Use touch control instead.';
+  if (k === 'model') return 'The head tracking files could not load. Check the connection and try again.';
+  return 'The camera could not start. ' + ((e && e.message) || '');
+}
+
+/* ---------- head input: angle to zone ---------- */
+const head = { zone: 0, rel: 0, lastRel: 0, lostSince: 0, state: 'ok' };
+function sideRange(side) {
+  const c = cal ? (side < 0 ? cal.left : cal.right) : 0;
+  return Math.max(12, Math.min(settings.depth, c || settings.depth));
+}
+function deepSide(side) {
+  if (!cal) return false;
+  const c = side < 0 ? cal.left : cal.right;
+  return !!(side < 0 ? cal.leftBeyond : cal.rightBeyond) && settings.depth > c + 4;
+}
+function zoneFor(mag, cur, innerT, outerT, maxZ) {
+  const H = 3; // hysteresis, in degrees
+  if (maxZ === 2) {
+    const up2 = cur === 2 ? outerT - H : outerT;
+    const up1 = cur >= 1 ? innerT - H : innerT;
+    return mag >= up2 ? 2 : (mag >= up1 ? 1 : 0);
+  }
+  return mag >= (cur >= 1 ? outerT - H : outerT) ? 1 : 0;
+}
+function headZone(ts) {
+  const maxZ = settings.lanes === 5 ? 2 : 1;
+  const centre = cal ? cal.centre : 0;
+  if (tracker.face) {
+    const rel = tracker.yaw - centre;
+    const side = rel < 0 ? -1 : 1;
+    const range = sideRange(side);
+    const deep = deepSide(side);
+    let cur = Math.sign(head.zone) === side ? Math.abs(head.zone) : 0;
+    if (deep) cur = Math.min(cur, maxZ - 1);
+    head.zone = side * zoneFor(Math.abs(rel), cur, 0.35 * range, deep ? Infinity : 0.85 * range, maxZ);
+    head.rel = rel; head.lastRel = rel; head.lostSince = 0; head.state = 'ok';
+  } else {
+    if (!head.lostSince) head.lostSince = ts;
+    const lostFor = ts - head.lostSince;
+    const side = head.lastRel < 0 ? -1 : 1;
+    const turned = Math.abs(head.lastRel) >= (deepSide(side) ? 0.75 : 0.51) * sideRange(side);
+    if (turned && lostFor < HOLD_MAX) { head.zone = side * maxZ; head.state = 'held'; }
+    else if (!turned && lostFor < LOST_PAUSE) { head.state = lostFor < 600 ? 'ok' : 'searching'; }
+    else { head.state = 'gone'; }
+  }
+  return head.zone;
+}
+
+/* ---------- touch and keyboard input ---------- */
+const touch = { dir: 0, since: 0 };
+function touchZone(ts) {
+  if (!touch.dir) return 0;
+  if (settings.lanes !== 5) return touch.dir;
+  return touch.dir * (ts - touch.since > 280 ? 2 : 1);
+}
+function press(dir) { if (touch.dir !== dir) { touch.dir = dir; touch.since = performance.now(); } paintTouch(); }
+function release(dir) { if (touch.dir === dir) touch.dir = 0; paintTouch(); }
+function paintTouch() { $('t-left').classList.toggle('down', touch.dir < 0); $('t-right').classList.toggle('down', touch.dir > 0); }
+
+/* ---------- drawing ---------- */
+function rr(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  if (ctx.roundRect) { ctx.roundRect(x, y, w, h, r); return; }
+  ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+}
+function drawLanes(ctx, W, H, L, active) {
+  ctx.fillStyle = C.field; ctx.fillRect(0, 0, W, H);
+  const lw = W / L;
+  if (active != null) { ctx.fillStyle = 'rgba(111, 211, 247, 0.07)'; ctx.fillRect(active * lw, 0, lw, H); }
+  ctx.lineWidth = Math.max(1, W / 420);
+  for (let i = 0; i < L; i++) {
+    ctx.strokeStyle = C.dash; ctx.setLineDash([H * 0.035, H * 0.035]);
+    ctx.beginPath(); ctx.moveTo((i + 0.5) * lw, 0); ctx.lineTo((i + 0.5) * lw, H); ctx.stroke();
+    if (i > 0) { ctx.setLineDash([]); ctx.strokeStyle = C.sep; ctx.beginPath(); ctx.moveTo(i * lw, 0); ctx.lineTo(i * lw, H); ctx.stroke(); }
+  }
+  ctx.setLineDash([]);
+}
+function drawBlock(ctx, x, y, s) {
+  rr(ctx, x - s / 2, y - s / 2, s, s, s * 0.18); ctx.fillStyle = C.hazard; ctx.fill();
+  ctx.fillStyle = C.ink;
+  const e = s * 0.14;
+  ctx.fillRect(x - s * 0.24, y - s * 0.17, e, e);
+  ctx.fillRect(x + s * 0.24 - e, y - s * 0.17, e, e);
+  ctx.fillRect(x - s * 0.19, y + s * 0.13, s * 0.38, s * 0.07);
+}
+function drawStar(ctx, x, y, s) {
+  const R = s / 2, r = R * 0.42;
+  ctx.beginPath();
+  for (let i = 0; i < 10; i++) {
+    const a = -Math.PI / 2 + i * Math.PI / 5;
+    const q = i % 2 ? r : R;
+    ctx.lineTo(x + Math.cos(a) * q, y + Math.sin(a) * q);
+  }
+  ctx.closePath(); ctx.fillStyle = C.gold; ctx.fill();
+}
+function drawEye(ctx, x, y, s) {
+  ctx.fillStyle = C.eye; ctx.beginPath(); ctx.arc(x, y, s / 2, 0, 7); ctx.fill();
+  ctx.fillStyle = C.iris; ctx.beginPath(); ctx.arc(x, y, s * 0.24, 0, 7); ctx.fill();
+  ctx.fillStyle = C.ink; ctx.beginPath(); ctx.arc(x, y, s * 0.12, 0, 7); ctx.fill();
+  ctx.fillStyle = '#FFFFFF'; ctx.beginPath(); ctx.arc(x + s * 0.07, y - s * 0.07, s * 0.045, 0, 7); ctx.fill();
+}
+function fitCanvas(c) {
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const w = Math.round(c.clientWidth * dpr), h = Math.round(c.clientHeight * dpr);
+  if (w && h && (c.width !== w || c.height !== h)) { c.width = w; c.height = h; }
+  return w && h;
+}
+function drawDemo() {
+  const c = $('demo');
+  if (!fitCanvas(c)) return;
+  const ctx = c.getContext('2d'), W = c.width, H = c.height, lw = W / 5, s = Math.min(lw * 0.6, H * 0.36);
+  drawLanes(ctx, W, H, 5, 2);
+  drawBlock(ctx, 0.5 * lw, H * 0.26, s);
+  drawBlock(ctx, 3.5 * lw, H * 0.52, s);
+  drawStar(ctx, 1.5 * lw, H * 0.42, s * 0.8);
+  drawStar(ctx, 4.5 * lw, H * 0.24, s * 0.8);
+  drawEye(ctx, 2.5 * lw, H * 0.76, s);
+}
+
+/* ---------- navigation ---------- */
+function show(name) {
+  current = name;
+  SCREENS.forEach((s) => { $(s).hidden = s !== name; });
+  $('app').classList.toggle('wide', name === 'play');
+  if (name === 'home' || name === 'setup' || name === 'progress') tracker.stop();
+  if (name === 'home') renderHome();
+  if (name === 'setup') renderSetup();
+  if (name === 'progress') renderProgress();
+}
+
+/* ---------- home ---------- */
+function myRounds() { return rounds.filter((r) => (r.athlete || '') === athlete); }
+function renderHome() {
+  const mine = myRounds();
+  $('home-rounds').textContent = String(mine.length);
+  $('home-best').textContent = mine.length ? Math.max.apply(null, mine.map((r) => r.score)).toLocaleString() : '-';
+  const rts = mine.map((r) => r.rt).filter((v) => v != null);
+  $('home-rt').textContent = rts.length ? fmtS(Math.min.apply(null, rts)) : '-';
+  drawDemo();
+}
+
+/* ---------- setup ---------- */
+function matchPreset() {
+  for (const k of Object.keys(PRESETS)) {
+    const p = PRESETS[k];
+    if (Object.keys(p).every((f) => String(p[f]) === String(settings[f]))) return k;
+  }
+  return 'custom';
+}
+function renderSetup() {
+  document.querySelectorAll('#setup .seg').forEach((seg) => {
+    const key = seg.dataset.key;
+    seg.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(String(settings[key]) === b.dataset.val)));
+  });
+  $('ctl-control').value = settings.control;
+  $('ctl-control').options[0].disabled = cameraBlocked;
+  $('sound').setAttribute('aria-pressed', String(!!settings.sound));
+  const headMode = settings.control === 'head';
+  $('hint-control').textContent = headMode ? 'Uses the front camera to read your head angle. Video never leaves this device.'
+    : (cameraBlocked ? 'The camera is blocked in this view, so head control is off here. Open the hosted app to use it. ' : '') + 'Hold the on-screen buttons or the arrow keys. Hold longer to turn further.';
+  $('hint-mapping').textContent = settings.mapping === 'opposite' ? 'Opposite: turn your head left, the player moves right.' : 'Same: turn your head left, the player moves left.';
+  $('grp-depth').hidden = !headMode;
+  $('hint-depth').textContent = !calOk() ? 'Set against the range found in calibration.'
+    : 'The camera saw left ' + calText(-1) + ', right ' + calText(1) + '. ' + ((deepSide(-1) || deepSide(1))
+      ? 'At this depth the outside lane needs a turn past the point where the camera loses your face.'
+      : 'The outside lane sits at 85% of the smaller of that range and this depth.');
+  $('set-next').textContent = headMode ? 'Next: position your device' : 'Start round';
+}
+function saveSettings() { store.set('settings', settings); }
+
+/* ---------- position ---------- */
+let posToken = 0;
+async function enterPosition() {
+  const token = ++posToken;
+  show('position');
+  $('pos-error').hidden = true; $('pos-msg').hidden = false; $('pos-msg').textContent = 'Starting camera';
+  $('pos-next').disabled = true; $('pos-chips').hidden = true;
+  try {
+    await tracker.start((m) => { if (token === posToken) $('pos-msg').textContent = m; });
+    if (token !== posToken || current !== 'position') { if (current === 'home' || current === 'setup' || current === 'progress') tracker.stop(); return; }
+    tracker.attach($('pos-video'));
+    $('pos-msg').hidden = true; $('pos-chips').hidden = false;
+  } catch (e) {
+    if (token !== posToken) return;
+    $('pos-msg').textContent = 'Camera not available';
+    $('pos-error-text').textContent = cameraErrorText(e);
+    $('pos-error').hidden = false;
+  }
+}
+function updatePosition() {
+  if (tracker.state !== 'ready') return;
+  const face = tracker.face;
+  const dist = face && tracker.faceW > 0.16 && tracker.faceW < 0.56;
+  const centred = face && Math.abs(tracker.cx - 0.5) < 0.2;
+  $('chip-face').classList.toggle('ok', face);
+  $('chip-dist').classList.toggle('ok', !!dist);
+  $('chip-centre').classList.toggle('ok', !!centred);
+  $('chip-face').textContent = face ? 'Face found' : 'Looking for your face';
+  $('chip-dist').textContent = !face ? 'Distance' : (tracker.faceW <= 0.16 ? 'Move closer' : (tracker.faceW >= 0.56 ? 'Move back' : 'Distance good'));
+  $('chip-centre').textContent = centred || !face ? 'Centred' : 'Move to the middle';
+  $('pos-next').disabled = !face;
+}
+
+/* ---------- calibrate ---------- */
+const calib = { step: 0, buf: [], centre: 0, left: 0, right: 0, beyondL: false, beyondR: false, max: 0, lastMag: 0, holdStart: 0, done: false };
+function resetCalib() { Object.assign(calib, { step: 0, buf: [], centre: 0, left: 0, right: 0, beyondL: false, beyondR: false, max: 0, lastMag: 0, holdStart: 0, done: false, wrong: false }); paintCalib(0, 0); }
+function calOk() { return !!cal && (cal.athlete || '') === athlete; }
+function calText(side) { return fmtDeg(side < 0 ? cal.left : cal.right) + ((side < 0 ? cal.leftBeyond : cal.rightBeyond) ? '+' : ''); }
+function enterCalibrate() {
+  show('calibrate'); tracker.attach($('cal-video')); resetCalib();
+  $('cal-last').hidden = !calOk();
+  if (calOk()) $('cal-last').textContent = 'Use last calibration: left ' + calText(-1) + ', right ' + calText(1);
+}
+function arcTo(deg) {
+  const a = clamp(deg, -90, 90) / DEG;
+  return { x: 163 + 130 * Math.sin(a), y: 160 - 130 * Math.cos(a) };
+}
+function arcPath(deg) {
+  if (Math.abs(deg) < 0.5) return '';
+  const p = arcTo(deg);
+  return 'M163 30A130 130 0 0 ' + (deg > 0 ? 1 : 0) + ' ' + p.x.toFixed(1) + ' ' + p.y.toFixed(1);
+}
+function paintCalib(rel, progress) {
+  const p = arcTo(rel);
+  $('g-dot').setAttribute('cx', p.x.toFixed(1)); $('g-dot').setAttribute('cy', p.y.toFixed(1));
+  $('g-live').setAttribute('d', arcPath(rel));
+  $('g-left').setAttribute('d', calib.left ? arcPath(-calib.left) : '');
+  $('g-right').setAttribute('d', calib.right ? arcPath(calib.right) : '');
+  $('g-nose').setAttribute('transform', 'rotate(' + clamp(rel, -90, 90).toFixed(1) + ' 163 155)');
+  $('cal-angle').textContent = Math.round(Math.abs(rel)) + '°';
+  $('cal-angle-label').textContent = !tracker.face ? 'face not in view' : (Math.abs(rel) < 6 ? 'facing the screen' : (rel < 0 ? 'left turn' : 'right turn'));
+  $('cal-bar').style.width = Math.round(clamp(progress, 0, 1) * 100) + '%';
+  for (let i = 0; i < 3; i++) {
+    const el = $('cal-p' + i);
+    el.classList.toggle('on', !calib.done && calib.step === i);
+    el.classList.toggle('done', calib.done || calib.step > i);
+  }
+  $('cal-c').textContent = calib.step > 0 || calib.done ? 'Set' : '-';
+  $('cal-l').textContent = calib.left ? fmtDeg(calib.left) + (calib.beyondL ? '+' : '') : (calib.step === 1 ? 'Now' : '-');
+  $('cal-r').textContent = calib.right ? fmtDeg(calib.right) + (calib.beyondR ? '+' : '') : (calib.step === 2 && !calib.done ? 'Now' : '-');
+  $('cal-start').disabled = !calib.done;
+  let instr, hold;
+  if (calib.done) { instr = 'Calibration complete. Face the screen, then start the round.'; hold = 'Done'; }
+  else if (calib.step === 0) { instr = 'Look straight at the screen and hold still.'; hold = tracker.face ? 'Hold still' : 'Waiting for your face'; }
+  else {
+    const word = calib.step === 1 ? 'left' : 'right';
+    instr = 'Turn your head ' + word + ' as far as is comfortable. Hold for 2 seconds.';
+    hold = calib.wrong ? 'That is your ' + (calib.step === 1 ? 'right' : 'left') + '. Turn ' + word + '.' : (progress > 0 ? 'Holding' : 'Waiting for the turn');
+  }
+  $('cal-instr').textContent = instr; $('cal-hold').textContent = hold;
+}
+function updateCalibrate(ts) {
+  if (tracker.state !== 'ready') return;
+  const face = tracker.face, yaw = tracker.yaw;
+  if (calib.done) { paintCalib(face ? yaw - calib.centre : 0, 1); return; }
+  let progress = 0;
+  if (calib.step === 0) {
+    if (face) {
+      calib.buf.push({ ts, yaw });
+      while (calib.buf.length && ts - calib.buf[0].ts > 1300) calib.buf.shift();
+      const ys = calib.buf.map((b) => b.yaw);
+      const span = Math.max.apply(null, ys) - Math.min.apply(null, ys);
+      if (span > 6) calib.buf = [{ ts, yaw }];
+      progress = (ts - calib.buf[0].ts) / 1000;
+      if (progress >= 1 && calib.buf.length >= 3) {
+        calib.centre = mean(calib.buf.map((b) => b.yaw));
+        calib.step = 1; calib.max = 0; calib.lastMag = 0; calib.holdStart = 0; progress = 0;
+        audio.count();
+      }
+    } else { calib.buf = []; }
+    paintCalib(face ? yaw - (calib.step ? calib.centre : yaw) : 0, progress);
+    return;
+  }
+  const side = calib.step === 1 ? -1 : 1;
+  const rel = face ? yaw - calib.centre : null;
+  if (rel != null) {
+    const mag = side * rel;
+    calib.lastMag = mag; calib.wrong = mag < -20;
+    if (mag > calib.max) calib.max = mag;
+    if (mag >= 12 && mag >= calib.max - 7) { if (!calib.holdStart) calib.holdStart = ts; } else calib.holdStart = 0;
+  } else if (calib.lastMag >= 30) {
+    if (!calib.holdStart) calib.holdStart = ts;   // turned past what the camera can see: counts as holding
+  } else { calib.holdStart = 0; }
+  progress = calib.holdStart ? (ts - calib.holdStart) / 2000 : 0;
+  if (progress >= 1) {
+    const val = Math.round(calib.max);
+    if (side < 0) { calib.left = val; calib.beyondL = rel == null; calib.step = 2; calib.max = 0; calib.lastMag = 0; calib.holdStart = 0; calib.wrong = false; audio.count(); }
+    else {
+      calib.right = val; calib.beyondR = rel == null; calib.done = true;
+      cal = { centre: calib.centre, left: calib.left, right: calib.right, leftBeyond: calib.beyondL, rightBeyond: calib.beyondR, at: Date.now(), athlete };
+      store.set('cal', cal); audio.go();
+    }
+    progress = 0;
+  }
+  paintCalib(rel == null ? side * Math.max(calib.lastMag, 0) : rel, progress);
+}
+
+/* ---------- game ---------- */
+function zoneNames(L) { return L === 5 ? ['Full L', 'Half L', 'Centre', 'Half R', 'Full R'] : ['Full L', 'Centre', 'Full R']; }
+function buildLaneLabels() {
+  const L = settings.lanes, names = zoneNames(L), el = $('lane-labels');
+  el.style.gridTemplateColumns = 'repeat(' + L + ', minmax(0, 1fr))';
+  el.textContent = '';
+  for (let i = 0; i < L; i++) {
+    const d = document.createElement('div');
+    d.textContent = names[settings.mapping === 'opposite' ? L - 1 - i : i];
+    el.appendChild(d);
+  }
+  $('lane-caption').textContent = settings.control === 'head' ? 'Head position that holds each lane' : 'Turn that holds each lane';
+}
+function startRound() {
+  const L = settings.lanes, centre = (L - 1) / 2;
+  Object.assign(head, { zone: 0, rel: 0, lastRel: 0, lostSince: 0, state: 'ok' });
+  touch.dir = 0; paintTouch();
+  g = {
+    L, centre, dur: settings.length, t: 0, playT: 0, phase: 'countdown', cd: 3, cdShown: 0, cdBuf: [],
+    objs: [], pops: [], lane: centre, x: centre, zone: 0,
+    auto: settings.speed === 'auto', level: settings.speed === 'auto' ? 2 : settings.speed, streak: 0, hitTimes: [],
+    spawnIn: 0.4, trail: null,
+    stars: 0, starsTotal: 0, hits: 0, blocksTotal: 0, score: 0, awayT: 0, maxL: 0, maxR: 0, wrongWay: 0,
+    rtL: [], rtR: [], starsL: 0, starsR: 0, flash: null, flashA: 0, pausedFor: ''
+  };
+  buildLaneLabels();
+  $('touch').hidden = settings.control !== 'touch';
+  $('thumb').hidden = settings.control !== 'head';
+  $('map-chip').textContent = settings.mapping === 'opposite' ? 'Opposite mapping' : 'Same mapping';
+  $('pause').hidden = true;
+  holdWake();
+}
+function laneWeight(type, lane) {
+  const side = Math.sign(lane - g.centre);
+  if (type === 'block') return 1;
+  let w = lane === g.lane ? 0.25 : (Math.abs(lane - g.centre) === g.centre ? 1.3 : (side === 0 ? 0.6 : 1));
+  const headSide = settings.mapping === 'opposite' ? -side : side;
+  if (settings.bias === 'left' && headSide < 0) w *= 1.9;
+  if (settings.bias === 'right' && headSide > 0) w *= 1.9;
+  return w;
+}
+function pickLane(type) {
+  if (type === 'block' && Math.random() < 0.45) return g.lane;
+  const ws = [];
+  let sum = 0;
+  for (let i = 0; i < g.L; i++) { const w = laneWeight(type, i); ws.push(w); sum += w; }
+  let r = Math.random() * sum;
+  for (let i = 0; i < g.L; i++) { r -= ws[i]; if (r <= 0) return i; }
+  return g.L - 1;
+}
+function addObj(type, lane, ts) {
+  // keep a star and a block from stacking in the same lane
+  if (g.objs.some((o) => !o.done && o.lane === lane && o.type !== type && o.y < 0.24)) return false;
+  g.objs.push({ type, lane, y: -0.06, born: ts, reacted: false, done: false });
+  if (type === 'star') g.starsTotal++; else g.blocksTotal++;
+  return true;
+}
+function spawn(ts) {
+  if (g.trail && g.trail.n > 0) { g.trail.n--; addObj('star', g.trail.lane, ts); return; }
+  const type = Math.random() < 0.45 ? 'star' : 'block';
+  const lane = pickLane(type);
+  if (!addObj(type, lane, ts)) return;
+  if (type === 'star' && lane !== g.centre && Math.random() < 0.3) g.trail = { lane, n: Math.random() < 0.5 ? 1 : 2 };
+  if (type === 'block' && lane === g.lane && g.level >= 3 && Math.random() < 0.35) {
+    const other = pickLane('star');
+    if (other !== lane) addObj('star', other, ts);
+  }
+}
+function onLaneChange(from, to, prevZone, zone, ts) {
+  audio.tick();
+  if (g.phase !== 'run') return;
+  const dirKey = zone - prevZone < 0 ? 'rtL' : 'rtR';
+  // a block coming down the lane just left: this move is a dodge
+  let blk = null, star = null;
+  for (const o of g.objs) {
+    if (o.done || o.reacted || o.y > YA) continue;
+    if (o.type === 'block' && o.lane === from) { if (!blk || o.born > blk.born) blk = o; }
+    if (o.type === 'star' && o.lane !== from) { if (!star || o.born > star.born) star = o; }
+  }
+  if (blk) {
+    blk.reacted = true;
+    const rt = ts - blk.born;
+    if (rt > 150 && rt < 4500) g[dirKey].push(rt);
+    return;
+  }
+  if (star) {
+    star.reacted = true;
+    if (Math.abs(to - star.lane) < Math.abs(from - star.lane)) {
+      const rt = ts - star.born;
+      if (rt > 150 && rt < 4500) g[dirKey].push(rt);
+    } else { g.wrongWay++; }
+  }
+}
+function resolve(o, contact, ts) {
+  o.done = true;
+  if (!contact) { if (o.type === 'star') g.streak = 0; return; }
+  g.pops.push({ lane: o.lane, a: 1, c: o.type === 'star' ? C.gold : C.hazard });
+  if (o.type === 'star') {
+    g.stars++; g.score += 100; g.streak++;
+    if (g.zone < 0) g.starsL++; else if (g.zone > 0) g.starsR++;
+    g.flash = '242, 207, 99'; g.flashA = 1; audio.star();
+    if (g.auto && g.streak >= 6 && g.level < 5) { g.level++; g.streak = 0; }
+  } else {
+    g.hits++; g.score = Math.max(0, g.score - 150); g.streak = 0;
+    g.flash = '229, 112, 126'; g.flashA = 1; audio.hit();
+    try { if (navigator.vibrate) navigator.vibrate(80); } catch (e) { /* ignore */ }
+    g.hitTimes.push(ts);
+    g.hitTimes = g.hitTimes.filter((t) => ts - t < 12000);
+    if (g.auto && g.hitTimes.length >= 2 && g.level > 1) { g.level--; g.hitTimes = []; }
+  }
+}
+function pause(why) {
+  if (!g || g.phase === 'paused' || g.phase === 'over') return;
+  g.resumeTo = g.phase; g.phase = 'paused'; g.pausedFor = why;
+  $('pause-title').textContent = 'Paused';
+  $('pause-reason').textContent = why === 'lost' ? 'The camera cannot find your face.' : 'The round is on hold.';
+  $('pause-tips').hidden = why !== 'lost';
+  $('pause-foot').hidden = settings.control !== 'head';
+  $('btn-recal').hidden = settings.control !== 'head';
+  $('countdown').hidden = true;
+  $('pause').hidden = false;
+}
+function resume() {
+  if (!g || g.phase !== 'paused') return;
+  $('pause').hidden = true;
+  Object.assign(head, { lostSince: 0, state: 'ok' });
+  g.phase = 'countdown'; g.cd = 3; g.cdShown = 0; g.cdBuf = [];
+}
+function updateGame(ts, dt) {
+  if (!g || g.phase === 'paused' || g.phase === 'over') return;
+  const headMode = settings.control === 'head';
+  const prevZone = g.zone;
+  const zone = headMode ? headZone(ts) : touchZone(ts);
+  g.zone = zone;
+  const lane = clamp(g.centre + (settings.mapping === 'opposite' ? -zone : zone), 0, g.L - 1);
+  if (lane !== g.lane) { onLaneChange(g.lane, lane, prevZone, zone, ts); g.lane = lane; }
+  g.x += (g.lane - g.x) * Math.min(1, dt * 20);
+
+  if (g.phase === 'countdown') {
+    g.cd -= dt;
+    const n = Math.ceil(g.cd);
+    if (n !== g.cdShown && n > 0) {
+      g.cdShown = n; audio.count();
+      $('countdown').hidden = false;
+      $('countdown').innerHTML = '';
+      $('countdown').append(String(n));
+      const sm = document.createElement('small');
+      sm.textContent = headMode ? 'Face the screen' : 'Get ready';
+      $('countdown').appendChild(sm);
+    }
+    if (headMode && tracker.face && g.cd < 1.3) g.cdBuf.push(tracker.yaw);
+    if (g.cd <= 0) {
+      // re-zero on the player's resting position if it has drifted a little since calibration
+      if (headMode && cal && g.cdBuf.length >= 3) { const m = median(g.cdBuf); if (Math.abs(m - cal.centre) < 15) cal.centre = m; }
+      $('countdown').hidden = true; g.phase = 'run'; audio.go();
+    }
+    return;
+  }
+
+  if (headMode && head.state === 'gone') { pause('lost'); return; }
+  g.t += dt; g.playT += dt;
+  if (zone !== 0) g.awayT += dt;
+  if (headMode && tracker.face) { if (head.rel < 0) g.maxL = Math.max(g.maxL, -head.rel); else g.maxR = Math.max(g.maxR, head.rel); }
+
+  const sp = SPEED[g.level];
+  g.spawnIn -= dt;
+  if (g.spawnIn <= 0 && g.t < g.dur - sp.fall * 0.75) { spawn(ts); g.spawnIn += sp.gap * (0.85 + Math.random() * 0.3); }
+  const v = dt / sp.fall;
+  for (const o of g.objs) {
+    if (o.done) continue;
+    const prev = o.y; o.y += v;
+    if (o.lane === g.lane && o.y >= YA - HIT && prev <= YA + HIT) resolve(o, true, ts);
+    else if (o.y > YA + HIT) resolve(o, false, ts);
+  }
+  g.objs = g.objs.filter((o) => !o.done);
+  if (g.t >= g.dur) finish();
+}
+function drawGame(dt) {
+  const c = $('field');
+  if (!g || !fitCanvas(c)) return;
+  const ctx = c.getContext('2d'), W = c.width, H = c.height, lw = W / g.L;
+  const s = Math.min(lw * 0.62, H * 0.13);
+  drawLanes(ctx, W, H, g.L, g.lane);
+  for (const o of g.objs) {
+    const x = (o.lane + 0.5) * lw, y = o.y * H;
+    if (o.type === 'block') drawBlock(ctx, x, y, s); else drawStar(ctx, x, y, s * 0.86);
+  }
+  for (const p of g.pops) {
+    ctx.strokeStyle = p.c; ctx.globalAlpha = p.a; ctx.lineWidth = s * 0.08;
+    ctx.beginPath(); ctx.arc((p.lane + 0.5) * lw, YA * H, s * (0.5 + (1 - p.a) * 0.6), 0, 7); ctx.stroke();
+    ctx.globalAlpha = 1; p.a -= dt * 3;
+  }
+  g.pops = g.pops.filter((p) => p.a > 0);
+  drawEye(ctx, (g.x + 0.5) * lw, YA * H, s);
+  if (g.flashA > 0) {
+    ctx.fillStyle = 'rgba(' + g.flash + ', ' + (g.flashA * 0.2).toFixed(3) + ')'; ctx.fillRect(0, 0, W, H);
+    ctx.strokeStyle = 'rgba(' + g.flash + ', ' + (g.flashA * 0.9).toFixed(3) + ')'; ctx.lineWidth = W * 0.05; ctx.strokeRect(0, 0, W, H);
+    g.flashA -= dt * 2.6;
+  }
+}
+const hudCache = {};
+function setText(id, v) { if (hudCache[id] !== v) { hudCache[id] = v; $(id).textContent = v; } }
+function updateHud() {
+  if (!g) return;
+  setText('hud-stars', String(g.stars)); setText('hud-hits', String(g.hits));
+  const left = Math.max(0, Math.ceil(g.dur - g.t));
+  setText('hud-time', Math.floor(left / 60) + ':' + String(left % 60).padStart(2, '0'));
+  const z = g.zone;
+  setText('dir', z < 0 ? 'LEFT' : (z > 0 ? 'RIGHT' : 'CENTRE'));
+  $('dir').className = 'dir' + (z < 0 ? ' left' : (z > 0 ? ' right' : ''));
+  if (settings.control === 'head') {
+    setText('ang', head.state !== 'held' && tracker.face ? Math.round(Math.abs(head.rel)) + '°' : '');
+    setText('trk', head.state === 'held' ? 'Holding turn, past camera' : (tracker.face ? 'Tracking' : 'Searching'));
+  } else { setText('ang', ''); setText('trk', 'Touch control'); }
+  const kids = $('lane-labels').children;
+  for (let i = 0; i < kids.length; i++) kids[i].classList.toggle('on', i === g.lane);
+}
+function finish() {
+  if (!g || g.phase === 'over') return;
+  g.phase = 'over'; releaseWake(); $('pause').hidden = true; $('countdown').hidden = true;
+  if (g.playT < 15) { g = null; show('setup'); return; }   // too short to mean anything: not saved
+  const all = g.rtL.concat(g.rtR);
+  const headMode = settings.control === 'head';
+  const r1 = (v) => (v == null ? null : Math.round(v));
+  lastRec = {
+    at: Date.now(), athlete, control: settings.control, mapping: settings.mapping, lanes: settings.lanes,
+    depth: headMode ? settings.depth : null, speed: settings.speed, level: g.level, bias: settings.bias, secs: Math.round(g.playT),
+    score: g.score, stars: g.stars, starsTotal: g.starsTotal, hits: g.hits, blocksTotal: g.blocksTotal,
+    rt: r1(mean(all)), rtL: r1(mean(g.rtL)), rtR: r1(mean(g.rtR)), away: Math.round(100 * g.awayT / g.playT),
+    maxL: headMode ? r1(g.maxL) : null, maxR: headMode ? r1(g.maxR) : null, wrongWay: g.wrongWay, starsL: g.starsL, starsR: g.starsR
+  };
+  rounds.push(lastRec); rounds = rounds.slice(-300); store.set('rounds', rounds);
+  audio.end(); renderResults(lastRec); show('results');
+}
+async function beginPlay() {
+  audio.init();
+  if (settings.control === 'head') {
+    if (tracker.state !== 'ready') { enterPosition(); return; }
+    if (!calOk()) { enterCalibrate(); return; }
+  }
+  show('play');
+  if (settings.control === 'head') tracker.attach($('play-video'));
+  startRound();
+}
+
+/* ---------- results ---------- */
+function bar(id, pct) { $(id).style.width = Math.round(clamp(pct, 0, 1) * 100) + '%'; }
+function pair(prefix, l, r, fmt, scale) {
+  const has = l != null && r != null && (l > 0 || r > 0);
+  $(prefix).hidden = !has;
+  if (!has) return;
+  const top = scale || Math.max(l, r) || 1;
+  $(prefix + '-l').textContent = fmt(l); $(prefix + '-r').textContent = fmt(r);
+  bar(prefix + '-lb', l / top); bar(prefix + '-rb', r / top);
+}
+function chipList(el, items) {
+  el.textContent = '';
+  items.forEach((t) => { const s = document.createElement('span'); s.className = 'chip'; s.textContent = t; el.appendChild(s); });
+}
+function describe(r) {
+  const out = [r.mapping === 'opposite' ? 'Opposite' : 'Same', r.lanes + ' lanes'];
+  if (r.depth) out.push(r.depth + '° depth');
+  out.push(r.speed === 'auto' ? 'Auto speed, ended at ' + r.level : 'Speed ' + r.speed);
+  out.push(r.secs + ' s');
+  if (r.control === 'touch') out.push('Touch control');
+  if (r.bias && r.bias !== 'none') out.push('More ' + r.bias + ' turns');
+  return out;
+}
+function suggestion(r) {
+  if (r.rtL != null && r.rtR != null) {
+    if (r.rtR > r.rtL * 1.15) return { side: 'right', text: 'Right turns were slower this round. Send more stars to right turns next time?' };
+    if (r.rtL > r.rtR * 1.15) return { side: 'left', text: 'Left turns were slower this round. Send more stars to left turns next time?' };
+  }
+  if (r.maxL && r.maxR) {
+    if (r.maxL - r.maxR >= 8) return { side: 'right', text: 'Your right turn was shorter than your left. Send more stars to right turns next time?' };
+    if (r.maxR - r.maxL >= 8) return { side: 'left', text: 'Your left turn was shorter than your right. Send more stars to left turns next time?' };
+  }
+  return null;
+}
+function renderResults(r) {
+  $('res-sub').textContent = 'Shoulder Check' + (r.athlete ? ', ' + r.athlete : '');
+  chipList($('res-chips'), describe(r));
+  $('res-score').textContent = r.score.toLocaleString();
+  $('res-wrong').textContent = String(r.wrongWay);
+  $('res-stars').textContent = r.stars + ' / ' + r.starsTotal;
+  $('res-hits').textContent = String(r.hits);
+  $('res-rt').textContent = fmtS(r.rt);
+  $('res-away').textContent = r.away + '%';
+  pair('lr-rt', r.rtL, r.rtR, fmtS);
+  pair('lr-max', r.maxL, r.maxR, fmtDeg, 90);
+  pair('lr-st', r.starsL, r.starsR, String);
+  $('res-lr').hidden = $('lr-rt').hidden && $('lr-max').hidden && $('lr-st').hidden;
+  const sg = suggestion(r);
+  $('res-sugg').hidden = !sg;
+  if (sg) { $('res-sugg-text').textContent = sg.text; $('res-sugg-btn').textContent = 'Weight ' + sg.side; $('res-sugg-btn').dataset.side = sg.side; }
+  $('res-note').textContent = 'Reaction time runs from an object appearing to your first move for it. A wrong-way turn is a first move away from the newest star.';
+}
+
+/* ---------- progress ---------- */
+function when(ts) {
+  const d = new Date(ts);
+  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) + ' ' + d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+}
+function renderProgress() {
+  const mine = myRounds();
+  $('prog-athlete').textContent = athlete || 'No athlete name set';
+  $('prog-empty').hidden = mine.length > 0;
+  $('prog-csv').hidden = true;
+  const timed = mine.filter((r) => r.rt != null).slice(-8);
+  $('prog-rt').hidden = !timed.length;
+  if (timed.length) {
+    const top = Math.max.apply(null, timed.map((r) => r.rt));
+    const chart = $('prog-chart');
+    chart.textContent = '';
+    timed.forEach((r) => {
+      const col = document.createElement('div'); col.className = 'col';
+      const v = document.createElement('span'); v.textContent = (r.rt / 1000).toFixed(2);
+      const b = document.createElement('i'); b.style.height = Math.max(2, Math.round(84 * r.rt / top)) + 'px';
+      col.appendChild(v); col.appendChild(b); chart.appendChild(col);
+    });
+    $('prog-latest').textContent = fmtS(timed[timed.length - 1].rt);
+  }
+  const turn = mine.slice().reverse().find((r) => r.maxL != null && r.maxR != null && (r.maxL > 0 || r.maxR > 0));
+  $('prog-turn').hidden = !turn;
+  if (turn) {
+    $('pt-l').textContent = fmtDeg(turn.maxL); $('pt-r').textContent = fmtDeg(turn.maxR);
+    bar('pt-lb', turn.maxL / 90); bar('pt-rb', turn.maxR / 90);
+    $('pt-gap').textContent = 'Gap ' + Math.abs(turn.maxL - turn.maxR) + '°';
+  }
+  $('prog-recent').hidden = !mine.length;
+  const list = $('prog-list');
+  list.textContent = '';
+  mine.slice(-6).reverse().forEach((r) => {
+    const row = document.createElement('div'); row.className = 'r';
+    const d = document.createElement('div'); d.className = 'd'; d.textContent = when(r.at);
+    const s = document.createElement('div'); s.className = 's'; s.textContent = describe(r).slice(0, 4).join(', ');
+    const n = document.createElement('div'); n.className = 'num'; n.textContent = r.score.toLocaleString();
+    row.appendChild(d); row.appendChild(s); row.appendChild(n); list.appendChild(row);
+  });
+  $('prog-clear').textContent = 'Clear rounds'; $('prog-clear').dataset.armed = '';
+  $('prog-copy').textContent = 'Copy results as CSV';
+  $('prog-copy').disabled = !mine.length; $('prog-clear').disabled = !mine.length;
+}
+function csv() {
+  const cols = ['at', 'athlete', 'control', 'mapping', 'lanes', 'depth', 'speed', 'level', 'bias', 'secs', 'score', 'stars', 'starsTotal', 'hits', 'blocksTotal', 'rt', 'rtL', 'rtR', 'away', 'maxL', 'maxR', 'wrongWay', 'starsL', 'starsR'];
+  const esc = (v) => { const s = v == null ? '' : String(v); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+  const lines = [cols.join(',')];
+  myRounds().forEach((r) => lines.push(cols.map((c) => esc(c === 'at' ? new Date(r.at).toISOString() : r[c])).join(',')));
+  return lines.join('\n');
+}
+
+/* ---------- main loop ---------- */
+let lastTs = 0;
+function frame(ts) {
+  requestAnimationFrame(frame);
+  const dt = lastTs ? Math.min(0.25, (ts - lastTs) / 1000) : 0;
+  lastTs = ts;
+  if (tracker.state === 'ready' && (current === 'position' || current === 'calibrate' || current === 'play')) tracker.step(ts);
+  if (current === 'position') updatePosition();
+  else if (current === 'calibrate') updateCalibrate(ts);
+  else if (current === 'play') { updateGame(ts, dt); drawGame(dt); updateHud(); }
+}
+
+/* ---------- wiring ---------- */
+$('athlete').value = athlete;
+$('athlete').addEventListener('input', (e) => { athlete = e.target.value.trim(); store.set('athlete', athlete); renderHome(); });
+$('go-setup').addEventListener('click', () => show('setup'));
+$('nav-progress').addEventListener('click', () => show('progress'));
+$('toggle-how').addEventListener('click', () => { const h = $('how'); h.hidden = !h.hidden; $('toggle-how').setAttribute('aria-expanded', String(!h.hidden)); });
+
+$('set-back').addEventListener('click', () => show('home'));
+document.querySelectorAll('#setup .seg').forEach((seg) => seg.addEventListener('click', (e) => {
+  const b = e.target.closest('button');
+  if (!b) return;
+  const key = seg.dataset.key;
+  let val = b.dataset.val;
+  if (/^\d+$/.test(val)) val = Number(val);
+  if (key === 'preset') { settings.preset = val; if (PRESETS[val]) Object.assign(settings, PRESETS[val]); }
+  else { settings[key] = val; if (key !== 'bias') settings.preset = matchPreset(); }
+  saveSettings(); renderSetup();
+}));
+$('ctl-control').addEventListener('change', (e) => { settings.control = e.target.value; saveSettings(); renderSetup(); });
+$('sound').addEventListener('click', () => { settings.sound = !settings.sound; saveSettings(); renderSetup(); });
+$('set-next').addEventListener('click', () => { audio.init(); if (settings.control === 'head') enterPosition(); else beginPlay(); });
+
+$('pos-back').addEventListener('click', () => { posToken++; show('setup'); });
+$('pos-retry').addEventListener('click', () => { tracker.state = tracker.state === 'error' ? 'off' : tracker.state; enterPosition(); });
+$('pos-touch').addEventListener('click', () => { posToken++; settings.control = 'touch'; saveSettings(); beginPlay(); });
+$('pos-next').addEventListener('click', () => enterCalibrate());
+
+$('cal-back').addEventListener('click', () => enterPosition());
+$('cal-redo').addEventListener('click', () => resetCalib());
+$('cal-start').addEventListener('click', () => beginPlay());
+$('cal-last').addEventListener('click', () => beginPlay());
+
+$('btn-pause').addEventListener('click', () => pause('manual'));
+$('btn-resume').addEventListener('click', () => resume());
+$('btn-recal').addEventListener('click', () => { if (g) g.phase = 'over'; g = null; releaseWake(); enterCalibrate(); });
+$('btn-end').addEventListener('click', () => finish());
+[['t-left', -1], ['t-right', 1]].forEach(([id, dir]) => {
+  const el = $(id);
+  el.addEventListener('pointerdown', (e) => { e.preventDefault(); try { el.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ } press(dir); });
+  ['pointerup', 'pointercancel', 'lostpointercapture'].forEach((n) => el.addEventListener(n, () => release(dir)));
+  el.addEventListener('contextmenu', (e) => e.preventDefault());
+});
+const KEYS = { ArrowLeft: -1, a: -1, A: -1, ArrowRight: 1, d: 1, D: 1 };
+window.addEventListener('keydown', (e) => {
+  if (current !== 'play' || !g) return;
+  if (e.key === 'Escape' || e.key === 'p' || e.key === 'P') { if (g.phase === 'paused') resume(); else pause('manual'); return; }
+  if (settings.control === 'touch' && KEYS[e.key]) { e.preventDefault(); if (!e.repeat) press(KEYS[e.key]); }
+});
+window.addEventListener('keyup', (e) => { if (KEYS[e.key]) release(KEYS[e.key]); });
+document.addEventListener('visibilitychange', () => { if (document.hidden && current === 'play') pause('manual'); });
+
+$('res-home').addEventListener('click', () => show('home'));
+$('res-setup').addEventListener('click', () => show('setup'));
+$('res-again').addEventListener('click', () => beginPlay());
+$('res-sugg-btn').addEventListener('click', () => { settings.bias = $('res-sugg-btn').dataset.side; saveSettings(); beginPlay(); });
+
+$('prog-back').addEventListener('click', () => show('home'));
+$('prog-copy').addEventListener('click', async () => {
+  const text = csv();
+  try { await navigator.clipboard.writeText(text); $('prog-copy').textContent = 'Copied'; }
+  catch (e) { const t = $('prog-csv'); t.hidden = false; t.value = text; t.focus(); t.select(); $('prog-copy').textContent = 'Select all and copy'; }
+});
+$('prog-clear').addEventListener('click', () => {
+  const b = $('prog-clear');
+  if (!b.dataset.armed) { b.dataset.armed = '1'; b.textContent = 'Tap again to clear'; return; }
+  rounds = rounds.filter((r) => (r.athlete || '') !== athlete); store.set('rounds', rounds); renderProgress();
+});
+
+window.addEventListener('resize', () => { if (current === 'home') drawDemo(); });
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { if (current === 'home') drawDemo(); });
+window.__sc = { settings, tracker, head, calib, game: () => g, cal: () => cal, rounds: () => rounds, last: () => lastRec };
+show('home');
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
